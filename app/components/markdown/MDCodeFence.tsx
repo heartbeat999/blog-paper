@@ -1,6 +1,6 @@
 import { Check, Copy } from "lucide-react";
 import type { DetailedHTMLProps, HTMLAttributes } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface PreProps extends DetailedHTMLProps<
   HTMLAttributes<HTMLPreElement>,
@@ -13,12 +13,20 @@ export function MDCodeFence(props: PreProps) {
   const { children, ...rest } = props;
   const [copied, setCopied] = useState(false);
   const preRef = useRef<HTMLPreElement>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
 
   // Extract code element and its props
   const codeElement = children as React.ReactElement<{
     className?: string;
-    children?: string;
-  }>;
+  }> | null;
   const className = codeElement?.props?.className || "";
 
   // Parse language from className (format: "hljs language-xxx")
@@ -27,9 +35,16 @@ export function MDCodeFence(props: PreProps) {
   const handleCopy = async () => {
     // Read from DOM so highlighted code (nested spans) copies correctly
     const code = preRef.current?.textContent || "";
-    await navigator.clipboard.writeText(code);
+    try {
+      await navigator.clipboard.writeText(code);
+    } catch {
+      return;
+    }
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
+    timerRef.current = setTimeout(() => setCopied(false), 2000);
   };
 
   return (

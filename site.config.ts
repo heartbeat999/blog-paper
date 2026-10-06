@@ -1,17 +1,14 @@
 export const siteInfo: SiteInfo = {
   author: "heartbeat999", // Required
   social: {
-    email: "hanbingmxcz15@gmail.com", // Required
+    // Required（RSS feed 与联系入口会用到）。不想公开真实邮箱就保留占位值
+    email: "yourname@example.com",
     github: "https://github.com/heartbeat999", // Required
   },
   timeZone: "Asia/Shanghai", // Required, e.g. 'North America/New York', 'Asia/Shanghai'
   domain: "https://heartbeat999.github.io", // Required,Used to generate rss at build time
-  friends: [
-    {
-      name: "Sansui233",
-      link: "https://sansui233.com/",
-    },
-  ],
+  // Optional，友情链接。填了才会显示，留空/删除则不显示
+  friends: [],
 } as const;
 
 type SiteInfo = {

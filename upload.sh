@@ -12,7 +12,8 @@ set -e
 cd "$(dirname "$0")"
 
 if [ ! -f .env ]; then
-  echo "找不到 .env 文件，请先创建并填入 Cloudinary 密钥" >&2
+  echo "找不到 .env 文件。请复制 .env.example 为 .env 并填入 Cloudinary 密钥：" >&2
+  echo "  cp .env.example .env" >&2
   exit 1
 fi
 
@@ -34,6 +35,13 @@ if [ $# -eq 0 ]; then
   exit 1
 fi
 
+# macOS 用 shasum，Linux 用 sha1sum
+if command -v shasum > /dev/null 2>&1; then
+  sha1() { shasum -a 1 | awk '{print $1}'; }
+else
+  sha1() { sha1sum | awk '{print $1}'; }
+fi
+
 # cloudinary 要求带 f_auto,q_auto 自动选格式和压缩质量
 TRANSFORM="f_auto,q_auto"
 
@@ -47,8 +55,7 @@ for FILE in "$@"; do
   TIMESTAMP=$(date +%s)
   # 签名覆盖所有非文件参数（按字母序用 & 连接），末尾拼 api_secret
   SIGNATURE=$(printf 'timestamp=%s&transformation=%s%s' \
-    "$TIMESTAMP" "$TRANSFORM" "$CLOUDINARY_API_SECRET" \
-    | shasum -a 1 | awk '{print $1}')
+    "$TIMESTAMP" "$TRANSFORM" "$CLOUDINARY_API_SECRET" | sha1)
 
   RESPONSE=$(curl -s --max-time 60 -X POST \
     "https://api.cloudinary.com/v1_1/$CLOUDINARY_CLOUD_NAME/image/upload" \
@@ -58,7 +65,18 @@ for FILE in "$@"; do
     -F "transformation=$TRANSFORM" \
     -F "signature=$SIGNATURE")
 
-  URL=$(printf '%s' "$RESPONSE" | sed -n 's/.*"secure_url":"\([^"]*\)".*/\1/p')
+  # 用 node 解析 JSON，避免 sed 在响应结构变化时误匹配
+  URL=$(printf '%s' "$RESPONSE" | node -e '
+    let raw = "";
+    process.stdin.on("data", (chunk) => (raw += chunk));
+    process.stdin.on("end", () => {
+      try {
+        process.stdout.write(JSON.parse(raw).secure_url || "");
+      } catch {
+        process.stdout.write("");
+      }
+    });
+  ')
   if [ -z "$URL" ]; then
     echo "上传失败: $FILE" >&2
     printf '%s\n' "$RESPONSE" >&2
@@ -76,6 +94,18 @@ $MARKDOWN"
   fi
 done
 
-printf '%s' "$RESULT" | pbcopy
+# macOS 用 pbcopy，Linux 用 xclip 或 wl-copy
+if command -v pbcopy > /dev/null 2>&1; then
+  printf '%s' "$RESULT" | pbcopy
+elif command -v wl-copy > /dev/null 2>&1; then
+  printf '%s' "$RESULT" | wl-copy
+elif command -v xclip > /dev/null 2>&1; then
+  printf '%s' "$RESULT" | xclip -selection clipboard
+else
+  echo ""
+  echo "未找到剪贴板工具（pbcopy/wl-copy/xclip），请手动复制上面的链接" >&2
+  exit 0
+fi
+
 echo ""
 echo "已复制到剪贴板，粘贴到 markdown 即可"
