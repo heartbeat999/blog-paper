@@ -1,6 +1,6 @@
 import { Check, Copy } from "lucide-react";
 import type { DetailedHTMLProps, HTMLAttributes } from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 interface PreProps extends DetailedHTMLProps<
   HTMLAttributes<HTMLPreElement>,
@@ -12,6 +12,7 @@ interface PreProps extends DetailedHTMLProps<
 export function MDCodeFence(props: PreProps) {
   const { children, ...rest } = props;
   const [copied, setCopied] = useState(false);
+  const preRef = useRef<HTMLPreElement>(null);
 
   // Extract code element and its props
   const codeElement = children as React.ReactElement<{
@@ -19,12 +20,13 @@ export function MDCodeFence(props: PreProps) {
     children?: string;
   }>;
   const className = codeElement?.props?.className || "";
-  const code = codeElement?.props?.children || "";
 
-  // Parse language from className (format: "language-xxx")
+  // Parse language from className (format: "hljs language-xxx")
   const language = className.replace(/hljs language-/, "");
 
   const handleCopy = async () => {
+    // Read from DOM so highlighted code (nested spans) copies correctly
+    const code = preRef.current?.textContent || "";
     await navigator.clipboard.writeText(code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -51,10 +53,12 @@ export function MDCodeFence(props: PreProps) {
           )}
         </button>
       </div>
-      <pre {...rest} className="bg-code-block-bg m-0">
-        <code className={{ className } + " max-h-70 overflow-y-auto"}>
-          {code}
-        </code>
+      <pre
+        {...rest}
+        ref={preRef}
+        className="bg-code-block-bg m-0 max-h-70 overflow-y-auto"
+      >
+        {children}
       </pre>
     </div>
   );

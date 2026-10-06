@@ -1,31 +1,45 @@
 #!/bin/bash
-# 此脚本由 chatgpt-3.5 生成
+# 一键部署：构建 + 推送源码 + 推送静态站点
+# 用法：./deploy.sh "更新说明"
+set -e
 
-TARGETDIR="/c/Users/lingn/git/Sansui233.github.io" # 替换为你的目标目录路径
+SRC_REPO="https://github.com/heartbeat999/blog-paper.git"
+SITE_REPO="https://github.com/heartbeat999/heartbeat999.github.io.git"
+BRANCH="main"
+MSG="${1:-Update at $(date '+%Y-%m-%d %H:%M:%S')}"
 
-# 删除target directory中除了 .git 和 .gitignore 的所有文件
-shopt -s extglob
-rm -r "$TARGETDIR"/!(".git"|".gitignore")
+cd "$(dirname "$0")"
 
-# 将当前目录下的out文件夹中的所有文件复制到target directory
-cp -r build/client/* "$TARGETDIR"/
+echo "==> 1/4 构建站点"
+export PATH="$HOME/Library/pnpm/bin:$PATH"
+pnpm pre
+pnpm build
 
-# 进入target directory
-cd "$TARGETDIR"
+echo "==> 2/4 推送源码 (blog-paper)"
+git add -A
+if git diff --cached --quiet; then
+  echo "    源码无变化"
+else
+  git commit -m "$MSG"
+  git push origin "$BRANCH"
+fi
 
-# 添加所有更改到暂存区
-git add .
+echo "==> 3/4 推送静态站点 (heartbeat999.github.io)"
+WORKDIR=$(mktemp -d)
+git clone --depth=1 -b "$BRANCH" "$SITE_REPO" "$WORKDIR/site"
+# 清空旧文件但保留 .git
+find "$WORKDIR/site" -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} +
+cp -R build/client/. "$WORKDIR/site/"
+cd "$WORKDIR/site"
+git add -A
+if git diff --cached --quiet; then
+  echo "    站点无变化"
+else
+  git commit -m "$MSG"
+  git push origin "$BRANCH"
+fi
+cd - > /dev/null
+rm -rf "$WORKDIR"
 
-# 获取当前时间作为默认的commit message
-curr_time="$(date +"%Y-%m-%d %H:%M:%S")"
-
-# 提交更改
-git commit -m "Updated at $curr_time"
-
-git push origin master # 分支名称根据实际情况修改
-
-echo "Deployment to GitHub Pages completed."
-sleep 3
-
-# 返回原始目录
-cd -
+echo "==> 4/4 完成"
+echo "    网站地址: https://heartbeat999.github.io"

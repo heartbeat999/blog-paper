@@ -4,6 +4,7 @@ import type { Dispatch, SetStateAction } from "react";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { siteInfo } from "site.config";
+import { MDCodeFence } from "~/components/markdown/MDCodeFence";
 import { MDXContent } from "~/components/markdown/MDXComponent";
 import useAppState from "~/hooks/use-appstate";
 import useDateI18n from "~/hooks/use-date-i18n";
@@ -74,6 +75,7 @@ export function MemoCard({
   const mdxComponents = useMemo(
     () => ({
       Tag: MemoTag(handleClickTag),
+      pre: MDCodeFence,
     }),
     [handleClickTag],
   );

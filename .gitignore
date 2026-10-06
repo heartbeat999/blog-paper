@@ -17,8 +17,10 @@
 
 /dist/
 /out/
-/public/
-
-site.config.ts
-content/
+# 生成物由 velite 在构建时重新生成，不入库
+/public/data/
+/public/rss
+/public/atom.xml
+/public/sitemap.xml
+/public/feed.json
 
