@@ -11,7 +11,6 @@ import React, {
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigation } from "react-router";
 import { siteInfo } from "site.config";
-import NekoIcon from "~/assets/icons/neko.svg?react";
 import MenuIcon from "./menuicon";
 import Sidebar from "./sidebar";
 
@@ -131,7 +130,13 @@ export default function Topbar({
         {/* Avatar / Logo */}
         <div className="w-52.5 flex-auto items-center justify-start font-medium max-md:w-25">
           <Link to="/" className="flex items-center px-4">
-            <NekoIcon width={36} className="shrink-0" />
+            <img
+              src="/avatar.png"
+              alt={siteInfo.author}
+              width={36}
+              height={36}
+              className="shrink-0 rounded-full"
+            />
             <span className="px-2 max-md:hidden">
               {t("ui.blogTitle", { author: siteInfo.author })}
             </span>

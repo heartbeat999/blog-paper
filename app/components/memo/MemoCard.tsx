@@ -96,7 +96,7 @@ export function MemoCard({
         <div className="flex items-center">
           <img
             className="border-ui-line-gray mr-2 h-10 w-10 rounded-full border"
-            src={theme === "light" ? "/avatar-white.png" : "/avatar-black.png"}
+            src={theme === "light" ? "/avatar.png" : "/avatar-dark.png"}
             alt={siteInfo.author}
           />
           <div className="flex flex-col items-start">
