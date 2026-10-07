@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "pre": "node scripts/ensure-velite.mjs && velite",
-    "dev": "react-router dev --host 0.0.0.0 --port 3000",
+    "dev": "node scripts/ensure-velite.mjs && velite --watch & react-router dev --host 0.0.0.0 --port 3000",
     "build": "react-router build && mv ./build/client/404/index.html ./build/client/404.html",
     "start": "npx serve ./build/client",
     "ssr-start": "react-router-serve ./build/server/index.js",
