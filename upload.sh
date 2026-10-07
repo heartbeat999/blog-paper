@@ -42,8 +42,11 @@ else
   sha1() { sha1sum | awk '{print $1}'; }
 fi
 
-# cloudinary 要求带 f_auto,q_auto 自动选格式和压缩质量
-TRANSFORM="f_auto,q_auto"
+# Cloudinary 上传时同步压缩用 eager 字段（不是 transformation，那个会被静默忽略）。
+# c_limit 只缩不放不裁切；q_auto 自动质量；f_auto 让浏览器按能力拿 WebP/AVIF。
+# 宽图压到 1600px 以内，博客正文栏足够清晰；原图仍可在 Cloudinary 找到。
+MAX_WIDTH="${UPLOAD_MAX_WIDTH:-1600}"
+EAGER="c_limit,w_${MAX_WIDTH},q_auto,f_auto"
 
 RESULT=""
 for FILE in "$@"; do
@@ -54,36 +57,36 @@ for FILE in "$@"; do
 
   TIMESTAMP=$(date +%s)
   # 签名覆盖所有非文件参数（按字母序用 & 连接），末尾拼 api_secret
-  SIGNATURE=$(printf 'timestamp=%s&transformation=%s%s' \
-    "$TIMESTAMP" "$TRANSFORM" "$CLOUDINARY_API_SECRET" | sha1)
+  SIGNATURE=$(printf 'eager=%s&timestamp=%s%s' \
+    "$EAGER" "$TIMESTAMP" "$CLOUDINARY_API_SECRET" | sha1)
 
   RESPONSE=$(curl -s --max-time 60 -X POST \
     "https://api.cloudinary.com/v1_1/$CLOUDINARY_CLOUD_NAME/image/upload" \
     -F "file=@$FILE" \
     -F "api_key=$CLOUDINARY_API_KEY" \
     -F "timestamp=$TIMESTAMP" \
-    -F "transformation=$TRANSFORM" \
+    -F "eager=$EAGER" \
     -F "signature=$SIGNATURE")
 
-  # 用 node 解析 JSON，避免 sed 在响应结构变化时误匹配
-  URL=$(printf '%s' "$RESPONSE" | node -e '
+  # 解析响应：取 eager 衍生图的 URL（压缩版），回退到原图
+  read -r URL DERIVED_BYTES <<< "$(printf '%s' "$RESPONSE" | node -e '
     let raw = "";
-    process.stdin.on("data", (chunk) => (raw += chunk));
+    process.stdin.on("data", (c) => (raw += c));
     process.stdin.on("end", () => {
       try {
-        process.stdout.write(JSON.parse(raw).secure_url || "");
-      } catch {
-        process.stdout.write("");
-      }
+        const d = JSON.parse(raw);
+        if (d.error) { console.error(d.error.message); process.exit(1); }
+        const eager = d.eager?.[0];
+        process.stdout.write([eager?.secure_url ?? d.secure_url ?? "", eager?.bytes ?? ""].join(" "));
+      } catch (e) { console.error("响应解析失败"); process.exit(1); }
     });
-  ')
+  ')" || { echo "上传失败: $FILE" >&2; exit 1; }
+
   if [ -z "$URL" ]; then
     echo "上传失败: $FILE" >&2
-    printf '%s\n' "$RESPONSE" >&2
     exit 1
   fi
 
-  # 原始大小 vs 压缩后大小（带浏览器 Accept 头，拿到的是真实访问格式）
   ORIG_SIZE=$(wc -c < "$FILE" | tr -d ' ')
   WEB_SIZE=$(curl -sL -o /dev/null -w '%{size_download}' \
     -H 'Accept: image/avif,image/webp,image/*' --max-time 30 "$URL")
