@@ -83,9 +83,24 @@ for FILE in "$@"; do
     exit 1
   fi
 
+  # 原始大小 vs 压缩后大小（带浏览器 Accept 头，拿到的是真实访问格式）
+  ORIG_SIZE=$(wc -c < "$FILE" | tr -d ' ')
+  WEB_SIZE=$(curl -sL -o /dev/null -w '%{size_download}' \
+    -H 'Accept: image/avif,image/webp,image/*' --max-time 30 "$URL")
+
   NAME=$(basename "$FILE")
   MARKDOWN="![${NAME%.*}]($URL)"
   echo "$MARKDOWN"
+  if [ -n "$ORIG_SIZE" ] && [ -n "$WEB_SIZE" ]; then
+    ORIG_KB=$((ORIG_SIZE / 1024))
+    WEB_KB=$((WEB_SIZE / 1024))
+    if [ "$WEB_SIZE" -lt "$ORIG_SIZE" ]; then
+      SAVE=$(((ORIG_SIZE - WEB_SIZE) * 100 / ORIG_SIZE))
+      echo "    大小：${ORIG_KB} KB → ${WEB_KB} KB（省 ${SAVE}%）"
+    else
+      echo "    大小：${ORIG_KB} KB → ${WEB_KB} KB"
+    fi
+  fi
   if [ -z "$RESULT" ]; then
     RESULT="$MARKDOWN"
   else
